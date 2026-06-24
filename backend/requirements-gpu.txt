@@ -1,0 +1,17 @@
+# GPU requirements for AI_PROVIDER=local (diffusers in-process inference)
+# Install on a CUDA-capable machine or RunPod GPU pod:
+#   pip install -r requirements-gpu.txt
+
+-r requirements.txt
+
+# PyTorch — install the CUDA 12.1 wheel; adjust cu121 → cu118 for older drivers
+torch==2.3.0+cu121 --index-url https://download.pytorch.org/whl/cu121
+
+# Diffusers ecosystem
+diffusers==0.27.2
+accelerate==0.30.0
+transformers==4.41.0
+safetensors==0.4.3
+
+# Optional but strongly recommended: 30% VRAM savings via flash attention
+xformers==0.0.26.post1

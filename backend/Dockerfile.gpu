@@ -1,0 +1,39 @@
+# GPU image for AI_PROVIDER=local — deploy on RunPod GPU pod or any CUDA host
+# Build:  docker build -f Dockerfile.gpu -t moda-ia-gpu .
+# Run:    docker run --gpus all -p 8000:8000 --env-file .env moda-ia-gpu
+
+FROM pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
+
+WORKDIR /app
+
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgl1 libglib2.0-0 libsm6 libxext6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python deps: base first, then GPU-specific
+COPY requirements.txt requirements-gpu.txt ./
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir \
+        diffusers==0.27.2 \
+        accelerate==0.30.0 \
+        transformers==4.41.0 \
+        safetensors==0.4.3 \
+        xformers==0.0.26.post1
+
+# Application code
+COPY app/ ./app/
+
+# Pre-download model weights at build time (optional — saves cold-start latency)
+# Uncomment if you want the model baked into the image (~4 GB extra):
+# RUN python -c "from diffusers import AutoPipelineForImage2Image; \
+#     AutoPipelineForImage2Image.from_pretrained('mrfakename/Z-Image-Turbo', \
+#     torch_dtype=__import__('torch').float16, use_safetensors=True, variant='fp16')"
+
+EXPOSE 8000
+
+ENV AI_PROVIDER=local \
+    DEVICE=cuda \
+    TORCH_DTYPE=float16
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

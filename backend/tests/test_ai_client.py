@@ -229,3 +229,168 @@ class TestGenerate:
             )
 
         assert prompt.startswith("blue denim jacket")
+
+
+# ── Hugging Face provider ─────────────────────────────────────────────────────
+
+class TestHuggingFaceProvider:
+    @pytest.fixture
+    def settings_hf(self, tmp_path):
+        return Settings(hf_token="hf-test-token", storage_dir=tmp_path)
+
+    @pytest.mark.asyncio
+    async def test_hf_success_binary_jpeg(self, settings_hf):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "image/jpeg"}
+        mock_resp.content = FAKE_JPEG
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client_cls.return_value.__aenter__.return_value = mock_client
+            mock_client.post.return_value = mock_resp
+
+            result_bytes, prompt = await generate(
+                make_jpeg_bytes(),
+                ScenarioType.white_background,
+                settings_hf,
+            )
+
+        assert result_bytes == FAKE_JPEG
+        assert "white" in prompt.lower()
+
+    @pytest.mark.asyncio
+    async def test_hf_success_json_generated_image(self, settings_hf):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "application/json"}
+        mock_resp.json.return_value = [{"generated_image": FAKE_B64}]
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client_cls.return_value.__aenter__.return_value = mock_client
+            mock_client.post.return_value = mock_resp
+
+            result_bytes, _ = await generate(
+                make_jpeg_bytes(),
+                ScenarioType.white_background,
+                settings_hf,
+            )
+
+        assert len(result_bytes) > 0
+
+    @pytest.mark.asyncio
+    async def test_hf_success_json_image_key(self, settings_hf):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "application/json"}
+        mock_resp.json.return_value = [{"image": FAKE_B64}]
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client_cls.return_value.__aenter__.return_value = mock_client
+            mock_client.post.return_value = mock_resp
+
+            result_bytes, _ = await generate(
+                make_jpeg_bytes(),
+                ScenarioType.white_background,
+                settings_hf,
+            )
+
+        assert len(result_bytes) > 0
+
+    @pytest.mark.asyncio
+    async def test_hf_json_empty_b64_raises(self, settings_hf):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "application/json"}
+        mock_resp.json.return_value = [{}]
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client_cls.return_value.__aenter__.return_value = mock_client
+            mock_client.post.return_value = mock_resp
+
+            with pytest.raises(AIClientError, match="Unexpected JSON shape"):
+                await generate(
+                    make_jpeg_bytes(),
+                    ScenarioType.white_background,
+                    settings_hf,
+                )
+
+    @pytest.mark.asyncio
+    async def test_hf_503_raises(self, settings_hf):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 503
+        mock_resp.text = "Model loading, please wait"
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client_cls.return_value.__aenter__.return_value = mock_client
+            mock_client.post.return_value = mock_resp
+
+            with pytest.raises(AIClientError, match="503"):
+                await generate(
+                    make_jpeg_bytes(),
+                    ScenarioType.white_background,
+                    settings_hf,
+                )
+
+    @pytest.mark.asyncio
+    async def test_hf_http_error_raises(self, settings_hf):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        mock_resp.text = "Unauthorized"
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client_cls.return_value.__aenter__.return_value = mock_client
+            mock_client.post.return_value = mock_resp
+
+            with pytest.raises(AIClientError, match="401"):
+                await generate(
+                    make_jpeg_bytes(),
+                    ScenarioType.white_background,
+                    settings_hf,
+                )
+
+    def test_hf_preferred_over_together(self, tmp_path):
+        s = Settings(hf_token="hf-token", together_api_key="together-key", storage_dir=tmp_path)
+        assert s.active_provider == "huggingface"
+
+
+# ── Local diffusers provider ──────────────────────────────────────────────────
+
+class TestLocalProvider:
+    @pytest.fixture
+    def settings_local(self, tmp_path):
+        return Settings(ai_provider="local", storage_dir=tmp_path)
+
+    @pytest.mark.asyncio
+    async def test_local_not_available_raises(self, settings_local):
+        with patch("app.services.local_pipeline.is_available", return_value=False):
+            with pytest.raises(AIClientError, match="Local inference requires"):
+                await generate(
+                    make_jpeg_bytes(),
+                    ScenarioType.white_background,
+                    settings_local,
+                )
+
+    @pytest.mark.asyncio
+    async def test_local_success(self, settings_local):
+        with patch("app.services.local_pipeline.is_available", return_value=True):
+            with patch("app.services.local_pipeline.run", return_value=FAKE_JPEG):
+                result_bytes, prompt = await generate(
+                    make_jpeg_bytes(),
+                    ScenarioType.white_background,
+                    settings_local,
+                )
+
+        assert result_bytes == FAKE_JPEG
+        assert "white" in prompt.lower()
+
+    @pytest.mark.asyncio
+    async def test_unknown_provider_raises(self, tmp_path):
+        s = Settings(ai_provider="unknown_xyz", storage_dir=tmp_path)
+        with pytest.raises(AIClientError, match="Unknown provider"):
+            await generate(make_jpeg_bytes(), ScenarioType.white_background, s)

@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.models.schemas import HealthResponse
 from app.routers import generate
+from app.services import local_pipeline
 from app.services.storage import count_stored
 
 logging.basicConfig(
@@ -26,12 +27,23 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     settings.storage_dir.mkdir(parents=True, exist_ok=True)
     logger.info(
-        "Moda IA started | model=%s | provider=%s | storage=%s",
-        settings.model_id,
-        "RunPod" if settings.use_runpod else "Together AI",
+        "Moda IA started | provider=%s | storage=%s",
+        settings.active_provider,
         settings.storage_dir,
     )
+
+    if settings.active_provider == "local":
+        local_pipeline.load(
+            settings.local_model_id,
+            settings.device,
+            settings.torch_dtype,
+        )
+
     yield
+
+    if settings.active_provider == "local":
+        local_pipeline.unload()
+
     logger.info("Moda IA shutting down")
 
 

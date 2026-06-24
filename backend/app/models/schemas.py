@@ -4,7 +4,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ScenarioType(str, Enum):
@@ -47,6 +47,8 @@ SCENARIO_NEGATIVE_PROMPTS: dict[ScenarioType, str] = {
 
 
 class GenerateResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     image_url: str = Field(..., description="Public URL or local path to generated image")
     filename: str = Field(..., description="Saved filename")
     scenario: ScenarioType
@@ -55,6 +57,8 @@ class GenerateResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     status: str
     version: str
     model_id: str
