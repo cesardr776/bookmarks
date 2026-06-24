@@ -1,0 +1,16 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+*.g.dart
+*.freezed.dart
+
+# Firebase — nunca commitar as opções geradas com chaves reais
+lib/firebase_options.dart
+google-services.json
+GoogleService-Info.plist
+
+# Env
+.env
