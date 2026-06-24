@@ -1,14 +1,11 @@
 __pycache__/
 *.py[cod]
-*.egg-info/
 .venv/
 venv/
+.env
+storage/
+htmlcov/
+.coverage
+.pytest_cache/
 dist/
 build/
-.eggs/
-
-# Secrets — nunca commitar
-.env
-firebase-service-account.json
-*.pem
-*.key

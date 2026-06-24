@@ -5,29 +5,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: moda-ia-api:latest
-    container_name: moda-ia-api
+    image: moda-ia-backend:latest
+    container_name: moda-ia-backend
     ports:
       - "${PORT:-8000}:8000"
     env_file:
       - .env
     volumes:
-      - ./firebase-service-account.json:/app/firebase-service-account.json:ro
+      # Persist generated images across container restarts
+      - moda_ia_storage:/app/storage
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      test: ["CMD", "python", "-c",
+             "import httpx; httpx.get('http://localhost:8000/health', timeout=5).raise_for_status()"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
 
-  # Uncomment to run locally with Nginx reverse proxy
-  # nginx:
-  #   image: nginx:alpine
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   volumes:
-  #     - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-  #   depends_on:
-  #     - api
+volumes:
+  moda_ia_storage:

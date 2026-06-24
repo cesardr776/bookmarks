@@ -1,50 +1,62 @@
-from pydantic import BaseModel, Field
-from typing import Optional
+from __future__ import annotations
+
 from enum import Enum
+from pathlib import Path
+from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class ScenarioType(str, Enum):
-    WHITE_BACKGROUND = "white_background"
-    PROFESSIONAL_STUDIO = "professional_studio"
-    MODERN_STORE = "modern_store"
-    URBAN_LIFESTYLE = "urban_lifestyle"
+    white_background = "white_background"
+    professional_studio = "professional_studio"
+    modern_store = "modern_store"
+    urban_lifestyle = "urban_lifestyle"
 
 
-SCENARIO_PROMPTS = {
-    ScenarioType.WHITE_BACKGROUND: (
-        "professional e-commerce product photo on clean white background, "
-        "perfect studio lighting, high resolution, commercial photography"
+# Prompts calibrated for fashion e-commerce img2img generation
+SCENARIO_PROMPTS: dict[ScenarioType, str] = {
+    ScenarioType.white_background: (
+        "fashion product photo on pure white seamless background, "
+        "professional studio lighting, e-commerce quality, high resolution, "
+        "clean and minimal, commercial photography"
     ),
-    ScenarioType.PROFESSIONAL_STUDIO: (
-        "professional fashion studio photography, dramatic lighting, "
-        "seamless backdrop, high-end commercial shoot, editorial quality"
+    ScenarioType.professional_studio: (
+        "high-end fashion studio photography, dramatic softbox lighting, "
+        "seamless gray backdrop, editorial quality, sharp details, "
+        "professional commercial shoot"
     ),
-    ScenarioType.MODERN_STORE: (
-        "modern retail store display, stylish boutique interior, "
-        "premium fashion store setting, professional commercial photography"
+    ScenarioType.modern_store: (
+        "stylish boutique retail interior, modern store display, "
+        "warm ambient lighting, premium fashion store setting, "
+        "professional product photography"
     ),
-    ScenarioType.URBAN_LIFESTYLE: (
-        "urban lifestyle fashion photography, city street background, "
-        "natural light, editorial street style, authentic lifestyle setting"
+    ScenarioType.urban_lifestyle: (
+        "urban street style fashion photography, city architecture background, "
+        "natural golden hour lighting, editorial lifestyle photo, "
+        "authentic outdoor setting"
     ),
 }
 
-
-class GenerateRequest(BaseModel):
-    prompt: Optional[str] = Field(None, description="Custom prompt override")
-    scenario: ScenarioType = Field(
-        ScenarioType.WHITE_BACKGROUND,
-        description="Background scenario for the generated image",
-    )
-    user_id: Optional[str] = Field(None, description="Firebase user UID for storage")
+SCENARIO_NEGATIVE_PROMPTS: dict[ScenarioType, str] = {
+    ScenarioType.white_background: "shadows, colored background, props, clutter",
+    ScenarioType.professional_studio: "overexposed, flat lighting, amateur",
+    ScenarioType.modern_store: "messy, outdated decor, bad lighting",
+    ScenarioType.urban_lifestyle: "indoors, studio, plain background",
+}
 
 
 class GenerateResponse(BaseModel):
-    image_url: str = Field(..., description="URL of the generated image")
-    scenario: str
-    original_prompt: str
+    image_url: str = Field(..., description="Public URL or local path to generated image")
+    filename: str = Field(..., description="Saved filename")
+    scenario: ScenarioType
+    prompt_used: str = Field(..., description="Full prompt sent to the model")
+    model_id: str
 
 
 class HealthResponse(BaseModel):
     status: str
     version: str
+    model_id: str
+    storage_dir: str
+    stored_images: int
